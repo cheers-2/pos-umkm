@@ -59,10 +59,21 @@ const App = {
       lucide.createIcons();
     } catch (err) {
       console.error('Init error:', err);
+      const isConstraint = (err.name === 'ConstraintError') || (err.message && err.message.includes('createIndex'));
       document.getElementById('loading-screen').innerHTML = `
-        <p class="text-white text-lg">Gagal memuat aplikasi</p>
-        <p class="text-primary-100 text-sm mt-2">${err.message}</p>
-        <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-white text-primary-700 rounded-xl font-medium">Coba Lagi</button>
+        <div class="text-center px-6">
+          <p class="text-white text-lg font-bold">Gagal memuat aplikasi</p>
+          <p class="text-primary-100 text-sm mt-2 max-w-md mx-auto">${err.message || err}</p>
+          ${isConstraint ? `
+            <p class="text-primary-200 text-xs mt-3">Database lama bentrok dengan versi baru.<br>Klik tombol di bawah untuk reset data lokal.</p>
+            <button onclick="resetDatabase()" class="mt-4 px-5 py-2.5 bg-amber-400 text-amber-900 rounded-xl font-semibold hover:bg-amber-300">
+              Reset Database & Muat Ulang
+            </button>
+          ` : ''}
+          <button onclick="location.reload()" class="mt-3 block mx-auto px-4 py-2 bg-white/20 text-white rounded-xl font-medium hover:bg-white/30">
+            Coba Lagi
+          </button>
+        </div>
       `;
     }
   },
