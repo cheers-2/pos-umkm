@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0d9488" />
+  <meta name="description" content="POS UMKM - Kasir modern untuk warung, kafe, dan toko retail Indonesia" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>POS UMKM - Kasir</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: { 50:'#f0fdfa',100:'#ccfbf1',200:'#99f6e4',300:'#5eead4',400:'#2dd4bf',500:'#14b8a6',600:'#0d9488',700:'#0f766e',800:'#115e59',900:'#134e4a' }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://unpkg.com/dexie@4.0.8/dist/dexie.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased overflow-hidden">
+  <!-- App Root -->
+  <div id="app" class="h-screen flex flex-col">
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="fixed inset-0 bg-primary-600 flex flex-col items-center justify-center z-50">
+      <div class="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mb-4"></div>
+      <h1 class="text-white text-2xl font-bold">POS UMKM</h1>
+      <p class="text-primary-100 mt-2">Memuat aplikasi kasir...</p>
+    </div>
+
+    <!-- Login Screen -->
+    <div id="login-screen" class="hidden fixed inset-0 bg-gradient-to-br from-primary-600 to-primary-800 flex items-center justify-center z-40 p-4">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+        <div class="text-center mb-8">
+          <div class="w-16 h-16 bg-primary-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <i data-lucide="store" class="w-8 h-8 text-primary-600"></i>
+          </div>
+          <h1 class="text-2xl font-bold text-slate-800">POS UMKM</h1>
+          <p class="text-slate-500 mt-1">Masuk ke akun Anda</p>
+        </div>
+        <form id="login-form" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Username</label>
+            <input type="text" id="login-username" value="owner" class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none" placeholder="owner / kasir" required />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
+            <input type="password" id="login-password" value="123456" class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none" placeholder="••••••" required />
+          </div>
+          <button type="submit" class="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 rounded-xl transition">
+            Masuk
+          </button>
+        </form>
+        <div class="mt-6 p-4 bg-slate-50 rounded-xl text-sm text-slate-600">
+          <p class="font-medium mb-1">Akun demo:</p>
+          <p>Owner → <code class="bg-white px-1 rounded">owner</code> / <code class="bg-white px-1 rounded">123456</code></p>
+          <p>Kasir → <code class="bg-white px-1 rounded">kasir</code> / <code class="bg-white px-1 rounded">123456</code></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main App Shell -->
+    <div id="main-app" class="hidden h-full flex flex-col">
+      <!-- Top Bar -->
+      <header class="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-3">
+          <button id="btn-menu" class="lg:hidden p-2 rounded-lg hover:bg-slate-100">
+            <i data-lucide="menu" class="w-5 h-5"></i>
+          </button>
+          <div>
+            <h1 class="font-bold text-lg text-primary-700">POS UMKM</h1>
+            <p id="outlet-name" class="text-xs text-slate-500">Warung Maju Jaya</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span id="offline-badge" class="hidden items-center gap-1 text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full">
+            <span class="w-2 h-2 bg-amber-500 rounded-full"></span> Offline
+          </span>
+          <div class="flex items-center gap-2">
+            <span id="current-user" class="text-sm font-medium text-slate-700 hidden sm:inline"></span>
+            <button id="btn-logout" class="p-2 rounded-lg hover:bg-slate-100 text-slate-500" title="Keluar">
+              <i data-lucide="log-out" class="w-5 h-5"></i>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div class="flex flex-1 overflow-hidden">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="fixed lg:static inset-y-0 left-0 z-30 w-64 bg-white border-r border-slate-200 transform -translate-x-full lg:translate-x-0 transition-transform duration-200 flex flex-col pt-14 lg:pt-0">
+          <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
+            <button data-page="kasir" class="nav-item active w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left font-medium">
+              <i data-lucide="shopping-cart" class="w-5 h-5"></i> Kasir
+            </button>
+            <button data-page="produk" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left font-medium">
+              <i data-lucide="package" class="w-5 h-5"></i> Produk & Stok
+            </button>
+            <button data-page="laporan" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left font-medium">
+              <i data-lucide="bar-chart-3" class="w-5 h-5"></i> Laporan
+            </button>
+            <button data-page="pengaturan" class="nav-item owner-only w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left font-medium">
+              <i data-lucide="settings" class="w-5 h-5"></i> Pengaturan
+            </button>
+          </nav>
+          <div class="p-3 border-t border-slate-100 text-xs text-slate-400">
+            MVP v1.0 • Offline-first
+          </div>
+        </aside>
+
+        <!-- Overlay for mobile sidebar -->
+        <div id="sidebar-overlay" class="fixed inset-0 bg-black/40 z-20 hidden lg:hidden"></div>
+
+        <!-- Main Content -->
+        <main id="content" class="flex-1 overflow-auto bg-slate-50">
+          <!-- Pages will be injected here -->
+        </main>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+
+  <!-- Scripts -->
+  <script src="js/db.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/products.js"></script>
+  <script src="js/pos.js"></script>
+  <script src="js/reports.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW reg failed', err));
+      });
+    }
+  </script>
+</body>
+</html>
